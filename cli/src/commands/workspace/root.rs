@@ -16,6 +16,7 @@ use std::io::Write as _;
 
 use clap_complete::ArgValueCandidates;
 use jj_lib::file_util;
+use jj_lib::file_util::IoResultExt as _;
 use jj_lib::ref_name::WorkspaceNameBuf;
 use jj_lib::workspace_store::SimpleWorkspaceStore;
 use jj_lib::workspace_store::WorkspaceStore as _;
@@ -51,14 +52,16 @@ pub fn cmd_workspace_root(
             .wc_commit_ids()
             .contains_key(ws_name)
         {
-            workspace_store
+            let path = workspace_store
                 .get_workspace_path(ws_name)?
                 .ok_or_else(|| {
                     user_error(format!(
                         "Workspace has no recorded path: {}",
                         ws_name.as_symbol()
                     ))
-                })?
+                })?;
+            let full_path = workspace_command.repo_path().join(path);
+            dunce::canonicalize(&full_path).context(&full_path)?
         } else {
             return Err(user_error(format!(
                 "No such workspace: {}",
